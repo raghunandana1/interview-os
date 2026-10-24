@@ -1,0 +1,48 @@
+:root {
+  /* InterviewOS: High-Performance Black & Crimson Dark Command Palette */
+  --bg-app: #06070a;
+  --bg-sidebar: #090a0f;
+  --bg-surface: #0f1118;
+  --bg-surface-elevated: #151823;
+  --bg-surface-hover: #1c2030;
+  --bg-surface-active: #23283c;
+  --bg-input: #0b0c12;
+  --bg-overlay: rgba(6, 7, 10, 0.88);
+
+  /* Precision 1px Borders */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-muted: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --border-crimson: rgba(239, 68, 68, 0.35);
+  --border-crimson-strong: rgba(239, 68, 68, 0.6);
+
+  /* Typography / High-Contrast Neutral & Crimson Hierarchy */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-faint: #475569;
+  --text-crimson: #ff4d6a;
+
+  /* Crimson & Ruby Cyber-Luxury Accents */
+  --crimson-primary: #ef4444;
+  --crimson-glow: rgba(239, 68, 68, 0.3);
+  --crimson-glow-strong: rgba(239, 68, 68, 0.5);
+  --crimson-surface: rgba(239, 68, 68, 0.08);
+  --crimson-border: rgba(239, 68, 68, 0.25);
+  --ruby-light: #fda4af;
+  --rose-accent: #f43f5e;
+  --rose-glow: rgba(244, 63, 94, 0.25);
+
+  /* Funnel & Stage Semantics */
+  --stage-applied: #6366f1;
+  --stage-screen: #0ea5e9;
+  --stage-technical: #f59e0b;
+  --stage-onsite: #a855f7;
+  --stage-offer: #10b981;
+  --stage-rejected: #f43f5e;
+
+  /* Typography Stacks */
+  --font-display: 'Clash Display', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  --font-mono: 'JetBrains Mono', "SF Mono", monospace;
+}

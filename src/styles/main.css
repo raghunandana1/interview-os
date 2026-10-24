@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Satoshi", "Helvetica Neue", sans-serif;
+  --font-display: "Clash Display", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+}
+
+:root {
+  --bg: #06070a;
+  --fg: #f8fafc;
+  --font-display: "Clash Display", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Satoshi", "Helvetica Neue", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+}
+
+.font-display {
+  font-family: "Clash Display", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+}
+
+.font-sans {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Satoshi", "Helvetica Neue", sans-serif;
+}
+
+.font-mono {
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   APPLE CUPERTINO LUXURY OBSIDIAN & CRIMSON DESIGN SYSTEM
+   Zero AI dashboard tropes, zero matrix dot-grids, pure human typography
+───────────────────────────────────────────────────────────────────────────── */
+
+.crimson-glass-card {
+  background: rgba(13, 15, 23, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.crimson-glass-card:hover {
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 30px rgba(239, 68, 68, 0.12);
+}
+
+.studio-card-shadow {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 1px 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #06070a;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
