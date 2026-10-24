@@ -55,12 +55,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server
-async function start() {
-  await connectDB();
-  app.listen(PORT, () => {
-    console.log(`[InterviewOS API] Server running on port ${PORT} (http://localhost:${PORT})`);
-  });
+// Start Server if run directly (local development)
+export { app, start };
+
+if (!process.env.VERCEL) {
+  start();
 }
 
-start();
+export default app;
