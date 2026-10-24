@@ -1,13 +1,42 @@
 import mongoose from 'mongoose';
 
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
 export async function connectDB() {
-  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/interviewos';
-  try {
-    const conn = await mongoose.connect(uri);
-    console.log(`[InterviewOS MongoDB] Connected: ${conn.connection.host}/${conn.connection.name}`);
-    return conn;
-  } catch (error) {
-    console.error(`[InterviewOS MongoDB Error]: ${error.message}`);
-    process.exit(1);
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
   }
+
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI environment variable is not defined.');
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 8000,
+    };
+
+    console.log(`[InterviewOS MongoDB] Initiating connection to: ${uri.replace(/:([^@]+)@/, ':****@')}`);
+    cached.promise = mongoose.connect(uri, opts).then((m) => {
+      console.log(`[InterviewOS MongoDB] Successfully connected to ${m.connection.host}/${m.connection.name}`);
+      return m;
+    });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    console.error(`[InterviewOS MongoDB Connection Failed]:`, e.message);
+    throw e;
+  }
+
+  return cached.conn;
 }
