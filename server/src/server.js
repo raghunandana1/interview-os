@@ -55,11 +55,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server if run directly (local development)
-export { app, start };
+// Start Server only if executed directly as entrypoint (e.g. `node server.js`)
+export async function start() {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`[InterviewOS API] Server running on port ${PORT} (http://localhost:${PORT})`);
+  });
+}
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.argv[1]?.endsWith('server.js')) {
   start();
 }
 
+export { app };
 export default app;
