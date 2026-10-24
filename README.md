@@ -31,9 +31,12 @@
 
 ## 3. Technology Stack & Design System
 
-* **Framework & Build**: [React 18](https://react.dev/) + [Vite](https://vitejs.dev/)
-* **Routing**: [React Router DOM v6](https://reactrouter.com/) (Root `/` loads Hero showcase; `/workspace` launches mission control)
-* **Styling**: [Tailwind CSS](https://tailwindcss.com/) with obsidian & crimson custom design tokens
+* **Architecture**: **MERN Stack** (MongoDB + Express.js + React 19 + Node.js)
+* **Backend API**: [Express.js](https://expressjs.com/) on Node.js v26 with [Mongoose](https://mongoosejs.com/) ODM
+* **Database**: [MongoDB](https://www.mongodb.com/) (Local / Atlas with automated seed scripts)
+* **Frontend Framework & Build**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
+* **Routing**: [React Router DOM v7](https://reactrouter.com/) (Root `/` loads Hero showcase; `/workspace` launches mission control)
+* **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with obsidian & crimson custom design tokens
 * **Canvas Simulation**: Custom canvas Perlin-noise interactive wave background (`InteractiveWavesBackground.jsx`)
 * **Icons**: [Lucide React](https://lucide.dev/) (Refined vector strokes; zero emojis in navigation)
 * **Visualization**: [Chart.js](https://www.chartjs.org/) + `react-chartjs-2` for stage funnels and velocity curves
@@ -52,23 +55,39 @@ InterviewOS/
 ├── PENALTY_LOG.md                     # Strict persistent penalty & error prevention log
 ├── .gitignore                         # Dependencies, build output, and local exclusions
 ├── package.json                       # Scripts and project dependencies
-├── vite.config.js                     # Vite configuration & dev server parameters
+├── vite.config.js                     # Vite configuration, dev port 5174, and /api reverse proxy
 ├── index.html                         # Entry HTML with custom typography links
 │
-└── src/
+├── server/                            # Node.js + Express + MongoDB Backend
+│   ├── package.json                   # Server dependencies (express, mongoose, cors, dotenv)
+│   ├── .env                           # Server environment variables (PORT=5001, MONGODB_URI)
+│   └── src/
+│       ├── server.js                  # Express bootstrap, CORS, morgan, and router mounting
+│       ├── config/
+│       │   └── db.js                  # Mongoose MongoDB connection & event handlers
+│       ├── models/
+│       │   ├── Application.js         # Applications schema with stage transition history
+│       │   ├── Question.js            # STAR questions schema with drill counters
+│       │   ├── Contact.js             # Networking advocate rolodex schema
+│       │   ├── CalendarEvent.js       # Interview loops and schedule schema
+│       │   ├── CheatSheet.js          # Live battle-station HUD schema
+│       │   └── Profile.js             # Candidate target compensation and streak schema
+│       ├── controllers/               # Express request handlers & audit logic
+│       ├── routes/                    # REST API route declarations
+│       └── seed.js                    # Flagship seed script to populate MongoDB
+│
+└── src/                               # React 19 Frontend Web Client
     ├── main.jsx                       # Application bootstrap
     ├── App.jsx                        # Route hierarchy (/ -> Hero, /workspace -> Mission Control)
-    │
+    ├── services/
+    │   └── api.js                     # REST API client interacting with Express backend
     ├── context/
-    │   └── AppContext.jsx             # LocalStorage state persistence, streak tracking, JSON backup/restore
-    │
+    │   └── AppContext.jsx             # Hybrid local-first state, localStorage caching, and MongoDB sync
     ├── data/
     │   └── mockData.js                # High-signal seed data (applications, STAR bank, contacts, cheat sheet)
-    │
     ├── styles/
     │   ├── tokens.css                 # Obsidian & crimson luxury color tokens, typography scales, glass borders
     │   └── main.css                   # Tailwind directives, animations, and Cupertino glass utilities
-    │
     ├── components/
     │   ├── canvas/
     │   │   └── InteractiveWavesBackground.jsx  # Interactive Perlin-noise particle wave background
@@ -79,7 +98,6 @@ InterviewOS/
     │       ├── ApplicationInspector.jsx # Slide-over candidate company dossier & interview prep notes
     │       ├── CheatSheetDrawer.jsx   # Live battle-station HUD overlay (⌘J shortcut)
     │       └── QuickAddModal.jsx      # Unified candidate entry modal (Application, Question, Contact, Event)
-    │
     └── pages/
         ├── HeroPage.jsx               # Flagship landing page with full-bleed canvas & Cupertino playbooks
         ├── PipelinePage.jsx           # 3-column Cupertino staging cards & stage filter controls
@@ -96,7 +114,29 @@ InterviewOS/
 
 ### Prerequisites
 * [Node.js](https://nodejs.org/) v18.0 or higher
-* [npm](https://www.npmjs.com/) v9.0 or higher
+* [MongoDB](https://www.mongodb.com/) (running locally on `mongodb://localhost:27017` or MongoDB Atlas URI)
+
+### Full-Stack Launch
+```bash
+# 1. Install frontend & server dependencies
+npm install
+cd server && npm install && cd ..
+
+# 2. Seed MongoDB with flagship applications and STAR questions
+npm run seed
+
+# 3. Launch the Express + MongoDB backend (port 5001)
+npm run server:dev
+
+# 4. In a second terminal, launch the Vite frontend (port 5174)
+npm run dev
+```
+
+### Production Build
+```bash
+# Compile and optimize frontend for production
+npm run build
+```
 
 ### Installation
 ```bash

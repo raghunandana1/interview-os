@@ -8,6 +8,7 @@ import {
   INITIAL_COMPANY_RESEARCH,
   REFERRAL_TEMPLATES,
 } from '../data/mockData';
+import { api } from '../services/api';
 
 const AppContext = createContext(null);
 
@@ -72,14 +73,16 @@ export function AppProvider({ children }) {
   const [practiceHistory, setPracticeHistory] = useState(() => {
     try {
       const saved = localStorage.getItem(`${STORAGE_KEY}_practice_history`);
-      return saved ? JSON.parse(saved) : [
-        { date: '2026-03-24', count: 3 },
-        { date: '2026-03-23', count: 4 },
-        { date: '2026-03-22', count: 5 },
-        { date: '2026-03-21', count: 2 },
-        { date: '2026-03-20', count: 6 },
-        { date: '2026-03-19', count: 3 }
-      ];
+      return saved
+        ? JSON.parse(saved)
+        : [
+            { date: '2026-03-24', count: 3 },
+            { date: '2026-03-23', count: 4 },
+            { date: '2026-03-22', count: 5 },
+            { date: '2026-03-21', count: 2 },
+            { date: '2026-03-20', count: 6 },
+            { date: '2026-03-19', count: 3 },
+          ];
     } catch (e) {
       return [];
     }
@@ -90,16 +93,117 @@ export function AppProvider({ children }) {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState('application');
   const [globalSearch, setGlobalSearch] = useState('');
+  const [isBackendConnected, setIsBackendConnected] = useState(false);
 
-  // Per-user profile ready for Firebase Auth scoping
+  // Per-user profile ready for Firebase / MongoDB Auth scoping
   const [user, setUser] = useState({
-    name: "Raghunandan G.",
-    email: "raghunandan@sitpune.edu.in",
-    role: "Staff Candidate",
-    avatarBadge: "RG",
-    targetRole: "Staff Software / Platform Engineer",
+    name: 'Raghunandan G.',
+    email: 'raghunandana1710@gmail.com',
+    role: 'Staff Candidate',
+    avatarBadge: 'RG',
+    targetRole: 'Staff Software / Platform Engineer',
     activeSearch: true,
   });
+
+  // Hydrate from Express + MongoDB backend on mount if online
+  useEffect(() => {
+    let isMounted = true;
+    async function hydrateFromBackend() {
+      try {
+        const [apiApps, apiQuestions, apiContacts, apiCalendar, apiSheet, apiProfile] =
+          await Promise.allSettled([
+            api.getApplications(),
+            api.getQuestions(),
+            api.getContacts(),
+            api.getCalendarEvents(),
+            api.getCheatSheet(),
+            api.getProfile(),
+          ]);
+
+        if (!isMounted) return;
+
+        let connected = false;
+
+        if (apiApps.status === 'fulfilled' && Array.isArray(apiApps.value) && apiApps.value.length > 0) {
+          // Normalize applications for frontend
+          const normalized = apiApps.value.map((a) => ({
+            ...a,
+            id: a.id || a.customId || a._id,
+            dateApplied: a.appliedDate || a.dateApplied,
+            contactsAtCompany: a.contacts || a.contactsAtCompany || [],
+            companyLogoText: (a.company || 'JOB').slice(0, 4).toUpperCase(),
+          }));
+          setApplications(normalized);
+          connected = true;
+        }
+
+        if (apiQuestions.status === 'fulfilled' && Array.isArray(apiQuestions.value) && apiQuestions.value.length > 0) {
+          const normalized = apiQuestions.value.map((q) => ({
+            ...q,
+            id: q.id || q.customId || q._id,
+            question: q.title || q.question,
+            practiceCount: q.drillCount || q.practiceCount || 0,
+            tags: q.tags || [q.category, 'System Architecture'],
+          }));
+          setQuestions(normalized);
+          connected = true;
+        }
+
+        if (apiContacts.status === 'fulfilled' && Array.isArray(apiContacts.value) && apiContacts.value.length > 0) {
+          const normalized = apiContacts.value.map((c) => ({
+            ...c,
+            id: c.id || c.customId || c._id,
+            howWeMet: c.relationship || c.howWeMet,
+            lastContactDate: c.lastContact || c.lastContactDate,
+          }));
+          setContacts(normalized);
+          connected = true;
+        }
+
+        if (apiCalendar.status === 'fulfilled' && Array.isArray(apiCalendar.value) && apiCalendar.value.length > 0) {
+          const normalized = apiCalendar.value.map((e) => ({
+            ...e,
+            id: e.id || e.customId || e._id,
+            title: e.round || e.title,
+            type: e.round || e.type,
+            meetingLink: e.meetLink || e.meetingLink,
+          }));
+          setCalendarEvents(normalized);
+          connected = true;
+        }
+
+        if (apiSheet.status === 'fulfilled' && apiSheet.value) {
+          setCheatSheet((prev) => ({
+            ...prev,
+            elevatorPitch: apiSheet.value.elevatorPitch || prev.elevatorPitch,
+            keyAchievements: apiSheet.value.keyMetrics || prev.keyAchievements,
+            questionsToAskInterviewers: apiSheet.value.reverseQuestions || prev.questionsToAskInterviewers,
+          }));
+          connected = true;
+        }
+
+        if (apiProfile.status === 'fulfilled' && apiProfile.value) {
+          setUser((prev) => ({
+            ...prev,
+            name: apiProfile.value.name || prev.name,
+            targetRole: apiProfile.value.targetRole || prev.targetRole,
+          }));
+          connected = true;
+        }
+
+        if (connected) {
+          setIsBackendConnected(true);
+        }
+      } catch (err) {
+        console.info('[InterviewOS] Operating in offline-resilient local mode:', err.message);
+      }
+    }
+
+    hydrateFromBackend();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Sync state to localStorage
   useEffect(() => {
@@ -112,7 +216,7 @@ export function AppProvider({ children }) {
       localStorage.setItem(`${STORAGE_KEY}_research`, JSON.stringify(companyResearch));
       localStorage.setItem(`${STORAGE_KEY}_practice_history`, JSON.stringify(practiceHistory));
     } catch (e) {
-      console.warn("Storage sync failed:", e);
+      console.warn('Storage sync failed:', e);
     }
   }, [applications, questions, contacts, calendarEvents, cheatSheet, companyResearch, practiceHistory]);
 
@@ -138,45 +242,75 @@ export function AppProvider({ children }) {
   }, []);
 
   // Applications CRUD & Pipeline logic
-  const addApplication = (appData) => {
+  const addApplication = async (appData) => {
     const newApp = {
       ...appData,
       id: `app-${Date.now()}`,
       dateApplied: appData.dateApplied || new Date().toISOString().substring(0, 10),
       lastActivityDate: new Date().toISOString().substring(0, 10),
       contactsAtCompany: appData.contactsAtCompany || [],
-      companyLogoText: (appData.company || 'JOB').slice(0, 4).toUpperCase()
+      companyLogoText: (appData.company || 'JOB').slice(0, 4).toUpperCase(),
     };
     setApplications((prev) => [newApp, ...prev]);
     showToast(`Application for ${newApp.company} created!`, 'success');
+
+    // Async sync to MongoDB
+    api.createApplication({
+      customId: newApp.id,
+      company: newApp.company,
+      role: newApp.role,
+      stage: newApp.stage || 'Applied',
+      appliedDate: newApp.dateApplied,
+      salary: newApp.salary,
+      location: newApp.location,
+      notes: newApp.notes,
+      contacts: newApp.contactsAtCompany,
+    }).catch((err) => console.warn('Failed to sync application to server:', err));
   };
 
   const updateApplication = (id, updates) => {
     setApplications((prev) =>
-      prev.map((app) => (app.id === id ? { ...app, ...updates, lastActivityDate: new Date().toISOString().substring(0, 10) } : app))
+      prev.map((app) =>
+        app.id === id || app._id === id
+          ? { ...app, ...updates, lastActivityDate: new Date().toISOString().substring(0, 10) }
+          : app
+      )
     );
-    showToast("Application updated.", 'info');
+    showToast('Application updated.', 'info');
+
+    // Async update to MongoDB
+    api.updateApplication(id, updates).catch((err) =>
+      console.warn('Failed to update application on server:', err)
+    );
   };
 
   const deleteApplication = (id) => {
-    setApplications((prev) => prev.filter((app) => app.id !== id));
-    showToast("Application removed from pipeline.", 'info');
+    setApplications((prev) => prev.filter((app) => app.id !== id && app._id !== id));
+    showToast('Application removed from pipeline.', 'info');
+
+    api.deleteApplication(id).catch((err) =>
+      console.warn('Failed to delete application on server:', err)
+    );
   };
 
   const advanceApplicationStage = (id, targetStage) => {
     setApplications((prev) =>
       prev.map((app) => {
-        if (app.id === id) {
+        if (app.id === id || app._id === id) {
           return {
             ...app,
             stage: targetStage,
-            lastActivityDate: new Date().toISOString().substring(0, 10)
+            lastActivityDate: new Date().toISOString().substring(0, 10),
           };
         }
         return app;
       })
     );
     showToast(`Stage advanced to ${targetStage}`, targetStage === 'Offer' ? 'success' : 'info');
+
+    api.updateApplication(id, { stage: targetStage }).catch((err) =>
+      console.warn('Failed to advance application stage on server:', err)
+    );
   };
 
   // Questions CRUD & Practice Streak
@@ -187,27 +321,45 @@ export function AppProvider({ children }) {
       practiceCount: 0,
       lastPracticed: null,
       isFavorite: false,
-      tags: qData.tags || ["Interview Prep"]
+      tags: qData.tags || ['Interview Prep'],
     };
     setQuestions((prev) => [newQ, ...prev]);
-    showToast("Question saved to STAR Bank.", 'success');
+    showToast('Question saved to STAR Bank.', 'success');
+
+    api.createQuestion({
+      customId: newQ.id,
+      category: newQ.category,
+      title: newQ.question,
+      situation: newQ.situation,
+      task: newQ.task,
+      action: newQ.action,
+      result: newQ.result,
+    }).catch((err) => console.warn('Failed to save question to server:', err));
   };
 
   const updateQuestion = (id, updates) => {
     setQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, ...updates } : q))
+      prev.map((q) => (q.id === id || q._id === id ? { ...q, ...updates } : q))
     );
-    showToast("Question updated.", 'info');
+    showToast('Question updated.', 'info');
+
+    api.updateQuestion(id, updates).catch((err) =>
+      console.warn('Failed to update question on server:', err)
+    );
   };
 
   const deleteQuestion = (id) => {
-    setQuestions((prev) => prev.filter((q) => q.id !== id));
-    showToast("Question deleted from bank.", 'info');
+    setQuestions((prev) => prev.filter((q) => q.id !== id && q._id !== id));
+    showToast('Question removed from repository.', 'info');
+
+    api.deleteQuestion(id).catch((err) =>
+      console.warn('Failed to delete question on server:', err)
+    );
   };
 
   const toggleQuestionFavorite = (id) => {
     setQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, isFavorite: !q.isFavorite } : q))
+      prev.map((q) => (q.id === id || q._id === id ? { ...q, isFavorite: !q.isFavorite } : q))
     );
   };
 
@@ -215,97 +367,134 @@ export function AppProvider({ children }) {
     const today = new Date().toISOString().substring(0, 10);
     setQuestions((prev) =>
       prev.map((q) => {
-        if (q.id === id) {
+        if (q.id === id || q._id === id) {
           return {
             ...q,
             practiceCount: (q.practiceCount || 0) + 1,
-            lastPracticed: new Date().toISOString()
+            lastPracticed: new Date().toISOString(),
           };
         }
         return q;
       })
     );
 
-    // Track practice history
+    // Track practice history for velocity chart
     setPracticeHistory((prev) => {
-      const existing = prev.find((entry) => entry.date === today);
+      const existing = prev.find((p) => p.date === today);
       if (existing) {
-        return prev.map((entry) =>
-          entry.date === today ? { ...entry, count: entry.count + 1 } : entry
-        );
-      } else {
-        return [{ date: today, count: 1 }, ...prev];
+        return prev.map((p) => (p.date === today ? { ...p, count: p.count + 1 } : p));
       }
+      return [...prev, { date: today, count: 1 }];
     });
 
-    showToast("Practice logged! +1 to session streak.", 'success');
+    showToast('STAR Drill completed! Practice streak updated.', 'success');
+
+    api.recordQuestionDrill(id).catch((err) =>
+      console.warn('Failed to record question drill on server:', err)
+    );
   };
 
-  // Contacts Rolodex CRUD
+  // Contacts CRUD
   const addContact = (contactData) => {
     const newContact = {
       ...contactData,
       id: `c-${Date.now()}`,
-      lastContactDate: contactData.lastContactDate || new Date().toISOString().substring(0, 10),
-      status: contactData.status || "In Touch"
+      lastContactDate: new Date().toISOString().substring(0, 10),
     };
     setContacts((prev) => [newContact, ...prev]);
-    showToast(`Added ${newContact.name} to networking rolodex.`, 'success');
+    showToast(`Added ${newContact.name} to Rolodex!`, 'success');
+
+    api.createContact({
+      customId: newContact.id,
+      name: newContact.name,
+      company: newContact.company,
+      role: newContact.role,
+      relationship: newContact.howWeMet,
+      notes: newContact.notes,
+    }).catch((err) => console.warn('Failed to add contact to server:', err));
   };
 
   const updateContact = (id, updates) => {
     setContacts((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      prev.map((c) => (c.id === id || c._id === id ? { ...c, ...updates } : c))
     );
-    showToast("Contact updated.", 'info');
+    showToast('Contact updated.', 'info');
+
+    api.updateContact(id, updates).catch((err) =>
+      console.warn('Failed to update contact on server:', err)
+    );
   };
 
   const deleteContact = (id) => {
-    setContacts((prev) => prev.filter((c) => c.id !== id));
-    showToast("Contact removed.", 'info');
+    setContacts((prev) => prev.filter((c) => c.id !== id && c._id !== id));
+    showToast('Contact removed from Rolodex.', 'info');
+
+    api.deleteContact(id).catch((err) =>
+      console.warn('Failed to delete contact on server:', err)
+    );
   };
 
   // Calendar CRUD
   const addCalendarEvent = (eventData) => {
     const newEvent = {
       ...eventData,
-      id: `evt-${Date.now()}`
+      id: `evt-${Date.now()}`,
     };
-    setCalendarEvents((prev) => [...prev, newEvent]);
-    showToast("Interview event added to calendar.", 'success');
+    setCalendarEvents((prev) => [newEvent, ...prev]);
+    showToast(`Interview round for ${newEvent.company} added!`, 'success');
+
+    api.createCalendarEvent({
+      customId: newEvent.id,
+      company: newEvent.company,
+      round: newEvent.title,
+      date: newEvent.date,
+      time: newEvent.time,
+      interviewer: newEvent.interviewer,
+      meetLink: newEvent.meetingLink,
+      focus: newEvent.notes,
+    }).catch((err) => console.warn('Failed to add calendar event on server:', err));
   };
 
   const updateCalendarEvent = (id, updates) => {
     setCalendarEvents((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+      prev.map((e) => (e.id === id || e._id === id ? { ...e, ...updates } : e))
     );
-    showToast("Event updated.", 'info');
+    showToast('Calendar event updated.', 'info');
   };
 
   const deleteCalendarEvent = (id) => {
-    setCalendarEvents((prev) => prev.filter((e) => e.id !== id));
-    showToast("Event deleted.", 'info');
+    setCalendarEvents((prev) => prev.filter((e) => e.id !== id && e._id !== id));
+    showToast('Interview event removed.', 'info');
+
+    api.deleteCalendarEvent(id).catch((err) =>
+      console.warn('Failed to delete calendar event on server:', err)
+    );
   };
 
-  // Cheat Sheet & Research
+  // Cheat Sheet and Company Dossiers
   const updateCheatSheet = (updates) => {
     setCheatSheet((prev) => ({ ...prev, ...updates }));
-    showToast("Cheat Sheet saved.", 'success');
+    showToast('Battle-station cheat sheet saved.', 'success');
+
+    api.updateCheatSheet({
+      elevatorPitch: updates.elevatorPitch,
+      keyMetrics: updates.keyAchievements,
+      reverseQuestions: updates.questionsToAskInterviewers,
+    }).catch((err) => console.warn('Failed to update cheat sheet on server:', err));
   };
 
-  const updateCompanyResearch = (company, data) => {
+  const updateCompanyResearch = (companyName, researchData) => {
     setCompanyResearch((prev) => ({
       ...prev,
-      [company]: { ...(prev[company] || {}), ...data }
+      [companyName]: { ...(prev[companyName] || {}), ...researchData },
     }));
-    showToast(`Research notes for ${company} saved.`, 'success');
+    showToast(`Dossier for ${companyName} updated.`, 'info');
   };
 
-  // Backup: JSON Export & Import
+  // Export / Import JSON state snapshots (Data Sovereignty)
   const exportDataJSON = () => {
-    const fullBackup = {
-      version: "1.0.0",
-      timestamp: new Date().toISOString(),
+    const dataSnapshot = {
+      exportDate: new Date().toISOString(),
       user,
       applications,
       questions,
@@ -313,70 +502,82 @@ export function AppProvider({ children }) {
       calendarEvents,
       cheatSheet,
       companyResearch,
-      practiceHistory
     };
-    const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(dataSnapshot, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `InterviewOS-backup-${new Date().toISOString().substring(0, 10)}.json`;
+    a.download = `InterviewOS_Backup_${new Date().toISOString().substring(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast("Full system backup exported as JSON.", 'success');
+    showToast('Complete candidate dossier backup exported!', 'success');
   };
 
-  const importDataJSON = (fileContent) => {
+  const importDataJSON = async (jsonString) => {
     try {
-      const parsed = JSON.parse(fileContent);
-      if (parsed.applications) setApplications(parsed.applications);
-      if (parsed.questions) setQuestions(parsed.questions);
-      if (parsed.contacts) setContacts(parsed.contacts);
-      if (parsed.calendarEvents) setCalendarEvents(parsed.calendarEvents);
-      if (parsed.cheatSheet) setCheatSheet(parsed.cheatSheet);
-      if (parsed.companyResearch) setCompanyResearch(parsed.companyResearch);
-      if (parsed.practiceHistory) setPracticeHistory(parsed.practiceHistory);
-      showToast("Data backup successfully restored!", 'success');
+      const parsed = JSON.parse(jsonString);
+      if (parsed.applications && Array.isArray(parsed.applications)) {
+        setApplications(parsed.applications);
+      }
+      if (parsed.questions && Array.isArray(parsed.questions)) {
+        setQuestions(parsed.questions);
+      }
+      if (parsed.contacts && Array.isArray(parsed.contacts)) {
+        setContacts(parsed.contacts);
+      }
+      if (parsed.calendarEvents && Array.isArray(parsed.calendarEvents)) {
+        setCalendarEvents(parsed.calendarEvents);
+      }
+      if (parsed.cheatSheet) {
+        setCheatSheet(parsed.cheatSheet);
+      }
+      if (parsed.companyResearch) {
+        setCompanyResearch(parsed.companyResearch);
+      }
+      if (parsed.user) {
+        setUser(parsed.user);
+      }
+
+      // Sync to MongoDB server
+      api.importSnapshot(parsed).catch((e) => console.warn('Server import failed:', e));
+
+      showToast('Candidate backup restored successfully!', 'success');
       return true;
     } catch (e) {
-      showToast("Failed to parse backup JSON file.", 'error');
+      showToast('Error parsing JSON backup file.', 'error');
       return false;
     }
   };
 
-  const resetToDemoData = () => {
+  const resetToDemoData = async () => {
     setApplications(INITIAL_APPLICATIONS);
     setQuestions(INITIAL_QUESTIONS);
     setContacts(INITIAL_CONTACTS);
     setCalendarEvents(INITIAL_CALENDAR_EVENTS);
     setCheatSheet(INITIAL_CHEAT_SHEET);
     setCompanyResearch(INITIAL_COMPANY_RESEARCH);
-    showToast("Reset to flagship demo dataset.", 'info');
+
+    // Call server reset endpoint
+    api.resetDemoData().catch((e) => console.warn('Server reset failed:', e));
+
+    showToast('Reset to flagship demo dataset.', 'info');
   };
 
-  // Funnel & Analytics calculations
+  // Funnel & Stats computations
   const stats = useMemo(() => {
     const totalApps = applications.length;
-    const screens = applications.filter((a) => ['Phone Screen', 'Technical', 'Onsite', 'Offer'].includes(a.stage)).length;
-    const technicals = applications.filter((a) => ['Technical', 'Onsite', 'Offer'].includes(a.stage)).length;
-    const onsites = applications.filter((a) => ['Onsite', 'Offer'].includes(a.stage)).length;
+    const screens = applications.filter((a) => a.stage === 'Phone Screen').length;
+    const technicals = applications.filter((a) => a.stage === 'Technical').length;
+    const onsites = applications.filter((a) => a.stage === 'Onsite' || a.stage === 'Onsite Loop').length;
     const offers = applications.filter((a) => a.stage === 'Offer').length;
     const rejected = applications.filter((a) => a.stage === 'Rejected').length;
 
-    const screenRate = totalApps > 0 ? Math.round((screens / totalApps) * 100) : 0;
+    const screenRate = totalApps > 0 ? Math.round(((screens + technicals + onsites + offers) / totalApps) * 100) : 0;
     const offerRate = totalApps > 0 ? Math.round((offers / totalApps) * 100) : 0;
-    const onsiteToOfferRate = onsites > 0 ? Math.round((offers / onsites) * 100) : 0;
+    const onsiteToOfferRate = onsites + offers > 0 ? Math.round((offers / (onsites + offers)) * 100) : 0;
 
     const totalPracticedTimes = questions.reduce((acc, q) => acc + (q.practiceCount || 0), 0);
-
-    // Current practice streak calculation
-    const uniqueDates = [...new Set(practiceHistory.map((p) => p.date))].sort().reverse();
-    let currentStreak = 0;
-    const today = new Date().toISOString().substring(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
-
-    if (uniqueDates.includes(today) || uniqueDates.includes(yesterday)) {
-      currentStreak = uniqueDates.length; // Active streak
-    }
+    const currentStreak = practiceHistory.length;
 
     return {
       totalApps,
@@ -389,7 +590,7 @@ export function AppProvider({ children }) {
       offerRate,
       onsiteToOfferRate,
       totalPracticedTimes,
-      currentStreak: Math.max(currentStreak, 6), // 6 days demo streak
+      currentStreak: Math.max(currentStreak, 12),
     };
   }, [applications, questions, practiceHistory]);
 
@@ -417,6 +618,7 @@ export function AppProvider({ children }) {
         setQuickAddType,
         globalSearch,
         setGlobalSearch,
+        isBackendConnected,
         addApplication,
         updateApplication,
         deleteApplication,
